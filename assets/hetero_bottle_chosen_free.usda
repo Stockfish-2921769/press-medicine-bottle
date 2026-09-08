@@ -1,0 +1,119 @@
+#usda 1.0
+(
+    defaultPrim = "Bottle"
+    metersPerUnit = 1
+    upAxis = "Z"
+)
+
+# 异形药瓶按压 articulation(本文件由 tools/author_hetero_bottle.py 生成)：
+#   base  —— 瓶身(几何参数化; 默认 base_to_world FixedJoint 固定) prismatic nozzle(Z)
+#   nozzle—— 按压 puck，行程 lower=-0.005，弹簧 stiffness=300.0 damping=2.0 maxForce=6.0
+# z=0 = spawn 瓶底接触面(桌面)。几何参数：body=cyl body_h=0.128 r=0.021 foot_r=0.026 foot_h=0.005 nozzle@(0.0,0.0) pad_top+0.0170 travel=0.005
+
+
+def Xform "Bottle" (
+    prepend apiSchemas = ["PhysicsArticulationRootAPI", "PhysxArticulationAPI"]
+)
+{
+    uniform token[] xformOpOrder = []
+    bool physxArticulation:articulationEnabled = 1
+
+    def Xform "base" (
+        prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsCollisionAPI", "PhysicsMassAPI", "PhysxRigidBodyAPI"]
+    )
+    {
+        uniform token[] xformOpOrder = []
+        bool physics:rigidBodyEnabled = 1
+        bool physics:kinematicEnabled = 0
+        float physics:mass = 0.25
+        float3 physics:diagonalInertia = (0.0003835833, 0.0003835833, 8.45e-05)
+        float physics:angularDamping = 0.1
+        float physics:linearDamping = 0.1
+        bool physxRigidBody:disableGravity = 0
+
+        def Cylinder "body" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI"]
+        )
+        {
+            uniform token axis = "Z"
+            double height = 0.128
+            double radius = 0.021
+            float3 xformOp:translate = (0, 0, 0.064)
+            uniform token[] xformOpOrder = ["xformOp:translate"]
+            bool physics:collisionEnabled = 1
+        }
+
+        def Cylinder "foot" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI"]
+        )
+        {
+            uniform token axis = "Z"
+            double height = 0.005
+            double radius = 0.026
+            float3 xformOp:translate = (0, 0, 0.0025)
+            uniform token[] xformOpOrder = ["xformOp:translate"]
+            bool physics:collisionEnabled = 1
+        }
+
+        def Cylinder "neck_visual"
+        {
+            uniform token axis = "Z"
+            double height = 0.002
+            double radius = 0.0125
+            float3 xformOp:translate = (0, 0, 0.128)
+            uniform token[] xformOpOrder = ["xformOp:translate"]
+        }
+
+    }
+
+    def Xform "nozzle" (
+        prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsCollisionAPI", "PhysicsMassAPI", "PhysxRigidBodyAPI"]
+    )
+    {
+        uniform token[] xformOpOrder = []
+        bool physics:rigidBodyEnabled = 1
+        bool physics:kinematicEnabled = 0
+        float physics:mass = 0.01
+        float3 physics:diagonalInertia = (1e-07, 1e-07, 1e-07)
+        float physics:angularDamping = 0.1
+        float physics:linearDamping = 0.1
+        bool physxRigidBody:disableGravity = 0
+
+        def Cylinder "puck" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI"]
+        )
+        {
+            uniform token axis = "Z"
+            double height = 0.01
+            double radius = 0.011
+            float3 xformOp:translate = (0, 0, 0.012)
+            uniform token[] xformOpOrder = ["xformOp:translate"]
+            bool physics:collisionEnabled = 1
+        }
+
+    }
+
+    def PhysicsPrismaticJoint "nozzle_joint" (
+        prepend apiSchemas = ["PhysicsDriveAPI:linear", "PhysicsJointStateAPI:linear"]
+    )
+    {
+        uniform token physics:axis = "Z"
+        rel physics:body0 = </Bottle/base>
+        rel physics:body1 = </Bottle/nozzle>
+        point3f physics:localPos0 = (0, 0, 0.128)
+        point3f physics:localPos1 = (0, 0, 0)
+        quatf physics:localRot0 = (1, 0, 0, 0)
+        quatf physics:localRot1 = (1, 0, 0, 0)
+        float physics:lowerLimit = -0.005
+        float physics:upperLimit = 0.001
+        # 复位弹簧(放开按压口径：K 低则轻压即到底)
+        float drive:linear:physics:stiffness = 300.0
+        float drive:linear:physics:damping = 2.0
+        float drive:linear:physics:targetPosition = 0.0
+        float drive:linear:physics:maxForce = 6.0
+        uniform token drive:linear:physics:type = "force"
+        float state:linear:physics:position = 0.0
+        float state:linear:physics:velocity = 0.0
+    }
+
+}

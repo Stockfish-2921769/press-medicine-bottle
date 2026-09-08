@@ -1,0 +1,50 @@
+#usda 1.0
+(
+    defaultPrim = "KukaShadow"
+    metersPerUnit = 1
+    upAxis = "Z"
+)
+
+def Xform "KukaShadow" (
+    prepend references = @https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/5.1/Isaac/IsaacLab/Robots/KukaAllegro/kuka.usd@</kuka>
+)
+{
+    over "ee_link" (
+        active = false
+    )
+    {
+    }
+
+    over "iiwa7_link_7"
+    {
+        over "allegro_mount_joint" (
+            active = false
+        )
+        {
+        }
+    }
+
+    def Xform "shadow_mount" (
+        delete apiSchemas = ["PhysicsArticulationRootAPI"]
+        prepend references = @https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/5.1/Isaac/Robots/ShadowRobot/ShadowHand/shadow_hand.usd@
+    )
+    {
+        over "joints"
+        {
+            over "rootJoint" (
+                active = false
+            )
+            {
+            }
+        }
+    }
+
+    def PhysicsFixedJoint "shadow_weld_joint"
+    {
+        rel physics:body0 = </KukaShadow/iiwa7_link_7>
+        rel physics:body1 = </KukaShadow/shadow_mount/robot0_hand_mount>
+        point3f physics:localPos0 = (0, 0, 0)
+        point3f physics:localPos1 = (0, 0, 0)
+    }
+}
+

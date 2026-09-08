@@ -1,0 +1,202 @@
+#usda 1.0
+(
+    defaultPrim = "PandaLongJaw"
+    metersPerUnit = 1
+    upAxis = "Z"
+)
+
+def Xform "PandaLongJaw" (
+    prepend references = @https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/5.1/Isaac/IsaacLab/Robots/FrankaEmika/panda_instanceable.usd@</panda>
+)
+{
+    over "panda_hand"
+    {
+        float3 physics:diagonalInertia = (0.0005, 0.0008, 0.0005)
+        float physics:mass = 0.55
+
+        over "visuals" (
+            active = false
+        )
+        {
+        }
+
+        over "collisions" (
+            active = false
+        )
+        {
+        }
+
+        over "panda_finger_joint1" (
+            active = false
+        )
+        {
+        }
+
+        over "panda_finger_joint2" (
+            active = false
+        )
+        {
+        }
+
+        def Xform "jaw_vis"
+        {
+            def Xform "dim"
+            {
+                float3 xformOp:scale = (0.048, 0.022, 0.04)
+                uniform token[] xformOpOrder = ["xformOp:scale"]
+
+                def Cube "box"
+                {
+                    double size = 1
+                }
+            }
+        }
+    }
+
+    over "panda_leftfinger" (
+        active = false
+    )
+    {
+    }
+
+    over "panda_rightfinger" (
+        active = false
+    )
+    {
+    }
+
+    def Xform "blade_L" (
+        prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsCollisionAPI", "PhysicsMassAPI", "PhysxRigidBodyAPI"]
+    )
+    {
+        float3 physics:diagonalInertia = (0.00005, 0.002, 0.002)
+        float physics:mass = 0.1
+
+        def Xform "geo"
+        {
+            double3 xformOp:translate = (0, 0, 0.08500000089406967)
+            uniform token[] xformOpOrder = ["xformOp:translate"]
+
+            def Xform "col"
+            {
+                def Xform "dim"
+                {
+                    float3 xformOp:scale = (0.008, 0.05, 0.1)
+                    uniform token[] xformOpOrder = ["xformOp:scale"]
+
+                    def Cube "box" (
+                        prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI"]
+                    )
+                    {
+                        bool physics:collisionEnabled = 1
+                        double size = 1
+                    }
+                }
+            }
+
+            def Xform "vis"
+            {
+                def Xform "dim"
+                {
+                    float3 xformOp:scale = (0.008, 0.05, 0.1)
+                    uniform token[] xformOpOrder = ["xformOp:scale"]
+
+                    def Cube "box"
+                    {
+                        double size = 1
+                    }
+                }
+            }
+        }
+    }
+
+    def PhysicsPrismaticJoint "longjaw_l" (
+        prepend apiSchemas = ["PhysicsDriveAPI:linear"]
+    )
+    {
+        float drive:linear:physics:damping = 300
+        float drive:linear:physics:maxForce = 500
+        float drive:linear:physics:stiffness = 200000
+        float drive:linear:physics:targetPosition = 0
+        uniform token drive:linear:physics:type = "force"
+        uniform token physics:axis = "X"
+        rel physics:body0 = </PandaLongJaw/panda_hand>
+        rel physics:body1 = </PandaLongJaw/blade_L>
+        point3f physics:localPos0 = (0.024, 0, 0)
+        point3f physics:localPos1 = (0, 0, 0)
+        quatf physics:localRot0 = (1, 0, 0, 0)
+        quatf physics:localRot1 = (1, 0, 0, 0)
+        float physics:lowerLimit = 0
+        float physics:upperLimit = 0.02
+        custom float state:linear:physics:position = 0
+        custom float state:linear:physics:velocity = 0
+    }
+
+    def Xform "blade_R" (
+        prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsCollisionAPI", "PhysicsMassAPI", "PhysxRigidBodyAPI"]
+    )
+    {
+        float3 physics:diagonalInertia = (0.00005, 0.002, 0.002)
+        float physics:mass = 0.1
+
+        def Xform "geo"
+        {
+            double3 xformOp:translate = (0, 0, 0.08500000089406967)
+            uniform token[] xformOpOrder = ["xformOp:translate"]
+
+            def Xform "col"
+            {
+                def Xform "dim"
+                {
+                    float3 xformOp:scale = (0.008, 0.05, 0.1)
+                    uniform token[] xformOpOrder = ["xformOp:scale"]
+
+                    def Cube "box" (
+                        prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI"]
+                    )
+                    {
+                        bool physics:collisionEnabled = 1
+                        double size = 1
+                    }
+                }
+            }
+
+            def Xform "vis"
+            {
+                def Xform "dim"
+                {
+                    float3 xformOp:scale = (0.008, 0.05, 0.1)
+                    uniform token[] xformOpOrder = ["xformOp:scale"]
+
+                    def Cube "box"
+                    {
+                        double size = 1
+                    }
+                }
+            }
+        }
+    }
+
+    def PhysicsPrismaticJoint "longjaw_r" (
+        prepend apiSchemas = ["PhysicsDriveAPI:linear"]
+    )
+    {
+        float drive:linear:physics:damping = 300
+        float drive:linear:physics:maxForce = 500
+        float drive:linear:physics:stiffness = 200000
+        float drive:linear:physics:targetPosition = 0
+        uniform token drive:linear:physics:type = "force"
+        uniform token physics:axis = "X"
+        rel physics:body0 = </PandaLongJaw/panda_hand>
+        rel physics:body1 = </PandaLongJaw/blade_R>
+        point3f physics:localPos0 = (-0.024, 0, 0)
+        point3f physics:localPos1 = (0, 0, 0)
+        quatf physics:localRot0 = (0, 0, 0, 1)
+        quatf physics:localRot1 = (1, 0, 0, 0)
+        float physics:lowerLimit = 0
+        float physics:upperLimit = 0.02
+        custom float state:linear:physics:position = 0
+        custom float state:linear:physics:velocity = 0
+    }
+}
+
