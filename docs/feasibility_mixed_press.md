@@ -304,3 +304,11 @@ env -u DISPLAY ./isaaclab.sh -p ../isaac_demo/rl/record_press.py --headless --en
   --checkpoint logs/rsl_rl/press_A_s1/2026-09-08_15-58-57/model_100.pt \
   --video ../isaac_demo/outputs/rl_press_s1.mp4 --steps 200
 ```
+
+---
+
+## 11. 闭环连续按压 round（PressCycle，同瓶多拍）
+
+> 用户拍板（2026-09-09）：把「压到底即终止」的单拍微技能升级为「**闭环连续任务、可在自动化流水线部署**」——同一 clamp 自由瓶上**重复按压多拍**，每拍都需掌心抬离、弹簧完全回弹再压；episode 不因首触底终止。
+> **自包含总结报告 = `rl_learning_press_cycle.md`**（本文件只放指针）：3 相相位状态机 PRESS→HOLD→LIFT（传感器门控自动推进、策略真学抬回）+ 两段 dive→cycle 课程 + 命令积分债根因修复。代码 = `press_cycle_env.py` / `PressCycle*` cfg / 5 个新增 task id。
+> 结果一句话：s1 训到 **~15.9 拍/局**（9985 次完整 cycle、回弹 q≈-0.00028、漂移 0.28 mm/拍）、单 episode **同一瓶连续 8 拍 0 reset** 视频；s07 零样本为正的部分迁移（~2.4 拍/局）；单拍回归仍 100%。边界：canonical 25 mm 抬升档未训成正奖励（12 mm 已物理足够）；多拍累计漂移 ~16 拍后越 8 mm fail 带。

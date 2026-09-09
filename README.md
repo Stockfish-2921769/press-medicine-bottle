@@ -2,8 +2,8 @@
 
 灵巧手按压药瓶喷嘴仿真 Demo（独立任务，与 CerebVLA / SomaVLA 项目无关）。纯仿真，环境 = Isaac Sim 5.1 / Isaac Lab。
 
-**当前状态（2026-09-09）：RL/PPO 学习按压 round 完成** —— Stage A 两几何（s1/s07）各训到 100%、跨几何零样本**双向 100%**、Stage B reset-DR 课程把 s1 在加宽复位分布下从 93.3% 补到 100%（视频 `media/rl_press_*.mp4`）。
-详细进展报告见 **`docs/PROGRESS.md`**；逐轮可行性结论见 `docs/feasibility_*.md`；**RL 总结报告（含 MDP 一览表）见 `docs/rl_learning_press.md`**。
+**当前状态（2026-09-09）：闭环连续按压（PressCycle）round 完成** —— PPO 真学「下压→HOLD→抬回回弹→再压」**同瓶多拍连续循环**：s1 ~15.9 拍/局、回弹 q≈-0.00028、漂移 0.28 mm/拍；视频 = **单 episode 同一 clamp 自由瓶连续 8 拍、0 次 reset**。前一轮 RL 单拍微技能：Stage A 两几何各 100%、跨几何零样本双向 100%、Stage B 把 s1 在加宽复位分布下从 93.3% 补到 100%。
+详细进展报告见 **`docs/PROGRESS.md`**；逐轮可行性结论见 `docs/feasibility_*.md`；**闭环连续 RL 总结见 `docs/rl_learning_press_cycle.md`**，单拍 RL 总结见 `docs/rl_learning_press.md`。
 
 ## 现状一句话
 
@@ -11,9 +11,11 @@ Panda 长爪（西侧，ALOHA 式 2 指平爪）**钳住自由站异形药瓶**�
 iiwa7+Shadow **掌心(pad)朝下压 cap 顶**，nozzle 行程到底（91% travel）→ pad `ContactSensor` 法向力 + 弹簧反力作
 **触觉判读** → `tactile_verdict=USABLE`，并记录**触发瞬间力**（pad 1.13–1.19 N / 弹簧反力 ~1.37 N）。
 随后按用户口径把**按压臂等比缩小 s=0.7 + 0.28 m 垫座立柱**重验通过（`USABLE`，`media/mixed_press_scaled.mp4`）。
+RL round 把规则下压换成 **PPO 真学**（单拍微技能 → 闭环同瓶多拍连续循环，面向自动化流水线部署）。
 
 视频：
-- `media/rl_press_s1.mp4` / `media/rl_press_s07.mp4` / `media/rl_press_s1B.mp4` —— RL 策略滚动（Stage A 两几何 + Stage B DR，1280×720@60fps，各含 3 次成功按压+自动 reset）
+- `media/rl_press_cycle_s1.mp4` —— **闭环连续按压**（PressCycle，s1 LiftEasy）：RL 策略单 episode 同一 clamp 瓶连续 8 拍、0 reset，1280×720@60fps、409 帧
+- `media/rl_press_s1.mp4` / `media/rl_press_s07.mp4` / `media/rl_press_s1B.mp4` —— RL 单拍策略滚动（Stage A 两几何 + Stage B DR，1280×720@60fps，各含 3 次成功按压+自动 reset）
 - `media/mixed_press.mp4` —— 混形双手 palm-down（s=1.0，21.15s 960×540）
 - `media/mixed_press_scaled.mp4` —— 缩放 round（s=0.7 + 垫座，~20.8s 960×540）
 - `media/press.mp4` —— Phase 1 食指按压（历史）
@@ -35,6 +37,7 @@ assets/
 tools/                    # USD authoring（生成上列资产）
 docs/
   PROGRESS.md             # ★ 项目进展总览（里程碑/当前方案/复现/遗留）
+  rl_learning_press_cycle.md    # 闭环连续按压 round：同瓶多拍相位 MDP + 总结（2026-09-09）
   rl_learning_press.md    # RL/PPO 学习按压 round：MDP 一览表 + 总结（2026-09-09）
   feasibility_mixed_press.md    # 混形双手 + palm-down 修正 + 缩放 round + RL round §10（2026-09-08/09）
   feasibility_shadow_singlehand.md  # Shadow 单臂握持+按压 → 负（2026-09-07）

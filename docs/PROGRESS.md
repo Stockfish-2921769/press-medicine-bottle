@@ -2,9 +2,9 @@
 
 > 报告日期：2026-09-09
 > 任务性质：纯仿真（Isaac Sim 5.1 / Isaac Lab）Demo，独立项目，与 CerebVLA / SomaVLA 无关。
-> 当前落地：**RL/PPO 学习按压 round** —— Stage A 两几何（s=1.0 / s=0.7+垫座）各训到 **100%**、跨几何零样本**双向 100%**、Stage B reset-DR 课程把 s1 在加宽复位分布下从 93.3% 补到 **100%**（见 §8 / `docs/rl_learning_press.md`，视频 `media/rl_press_*.mp4`）。
+> 当前落地：**闭环连续按压（PressCycle）round** —— PPO 真学「下压→HOLD→抬回回弹→再压」**同瓶多拍循环**（单 episode 连续 8 拍 0 reset 视频、s1 ~15.9 拍/局、回弹 q≈-0.00028、漂移 0.28 mm/拍，见 §9 / `docs/rl_learning_press_cycle.md`，视频 `media/rl_press_cycle_s1.mp4`）。前一轮 RL 单拍微技能：Stage A 两几何 100%、跨几何零样本双向 100%、Stage B 把 s1 DR 下 93.3% 补到 100%（见 §8 / `rl_learning_press.md`）。
 > 前序地面真值 demo：**混形双手方案**（Panda 长爪钳自由瓶 + Shadow 掌心朝下压 cap，触觉判读 `USABLE`）与**按压臂等比缩放 s=0.7 + 垫座**重验均通过。
-> 明细文档：`docs/feasibility_*.md`（按轮次归档）+ **`docs/rl_learning_press.md`（RL 总结，含 MDP 一览表）**；脚本/资产/视频见仓库目录。
+> 明细文档：`docs/feasibility_*.md`（按轮次归档）+ **`docs/rl_learning_press_cycle.md`（闭环连续 RL 总结）** / `docs/rl_learning_press.md`（单拍 RL 总结）；脚本/资产/视频见仓库目录。
 
 ---
 
@@ -19,6 +19,7 @@
 | 混形双手 | 固定端 Panda 长爪**钳住瓶身**（夹持摩擦 + 桌面承反力），按压端 Shadow **掌心朝下压 cap 顶**，用 pad 接触力 + nozzle 行程做**触觉判读**（未来 palm tactel 代用），并**记录触发瞬间力** | **M1–M4 全链路跑通**（2026-09-08） |
 | 缩放 round | 用户目视视频判「按压手所在机械臂过长」→ **等比缩小按压臂物理尺寸**；目标 = 尽量小但够得到原尺寸瓶口；**允许垫高基座**；只缩按压端 | `spawn.scale=0.7` + 0.28 m 垫座，**重验 USABLE**（2026-09-08，见 §6） |
 | RL/PPO 学习按压（计划书 Phase 3） | 把规则下压脚本换成 **PPO 真学**按压微技能：课程化两段（A 精确按压 → B 放宽 reset-DR 续训）+ 双几何（s1/s07）都训 + 跨几何零样本 | **完成**（2026-09-08 训练 / 09-09 归档，见 §8 与 `rl_learning_press.md`）|
+| 闭环连续按压（PressCycle） | 「**可在自动化流水线部署的连续任务**」：同一 clamp 自由瓶上 **PPO 真学重复多拍**（3 相相位机 PRESS→HOLD→LIFT，门控自动推进），每拍抬离让弹簧完全回弹再压，episode 不因首触底终止 | **完成**（2026-09-09，见 §9 与 `rl_learning_press_cycle.md`）|
 
 ---
 
@@ -34,9 +35,10 @@
 | `feasibility_mixed_press`（混形） | 09-08 | **双手**：Panda 长爪钳瓶 + Shadow palm 下压 | ✅ 全链路 `USABLE`（先 palm 朝上，用户目视判出 → 修正为 pad 朝下） | `media/mixed_press.mp4` |
 | `feasibility_mixed_press`（缩放 round） | 09-08 | 按压臂 `spawn.scale=0.7` + 垫座 | ✅ 重验 `USABLE`（触觉判读同一判据链） | `media/mixed_press_scaled.mp4` |
 | **RL/PPO 学习按压（§8 / `rl_learning_press.md`）** | 09-08/09 | PPO（rsl-rl）DirectRLEnv 真学按压微技能；两几何 s1/s07 × A/B | ✅ Stage A 两几何 100%、跨几何零样本双向 100%；Stage B 把 s1 DR 下 93.3→100%（s07 无增益） | `docs/rl_learning_press.md`、`media/rl_press_*.mp4` |
+| **闭环连续按压（§9 / `rl_learning_press_cycle.md`）** | 09-09 | PressCycle 相位机 MDP（PRESS→HOLD→LIFT）同瓶多拍；dive→cycle 两段课程 + 命令积分债结构修复 | ✅ s1 ~15.9 拍/局（9985 cycle、回弹 q≈-0.00028、漂移 0.28 mm/拍）、录像单 episode 连续 8 拍 0 reset；s07 零样本部分迁移 ~2.4 拍/局；单拍回归 100% | `docs/rl_learning_press_cycle.md`、`media/rl_press_cycle_s1.mp4` |
 
 > 注：任务计划书为 5 阶段（Phase 0 环境 / 1 场景 / 2 IK / 3 RL·PPO / 4 集成·视频·报告）。
-> **Phase 3（RL/PPO 学习按压）已于 2026-09-09 落地**（真学策略，非规则脚本）：MDP 表/结果/边界见 §8 与 `docs/rl_learning_press.md`；
+> **Phase 3（RL/PPO 学习按压）已于 2026-09-09 落地**（真学策略，非规则脚本）：单拍微技能 MDP 表/结果/边界见 §8 与 `docs/rl_learning_press.md`；**闭环连续按压（PressCycle，同瓶多拍）见 §9 与 `docs/rl_learning_press_cycle.md`**。
 > 上面的逐轮可行性迭代属于「动作/几何定义」阶段。详见本项目 memory `project_press_demo.md`。
 
 ---
@@ -153,6 +155,7 @@ assets/
 tools/                          # USD authoring 工具（生成上述资产）
 docs/
   PROGRESS.md                   # 本文（项目进展总览）
+  rl_learning_press_cycle.md    # 闭环连续按压 round：同瓶多拍相位 MDP 总结（2026-09-09）
   rl_learning_press.md          # RL/PPO 学习按压 round：MDP 一览表 + 总结（2026-09-09）
   feasibility_grasp_thumb_press.md     # 09-04 Allegro 握持+拇指压 → 负
   feasibility_hetero_press.md          # 09-04 异形长指按压 / 选定瓶 → 正(演示口径)
@@ -179,8 +182,19 @@ media/
 - **教训（诚实）**：宽 DR 初版（臂关节 ±0.06 rad、cmd-xy ±3 mm）resume-A 崩 + from-scratch 也不学 —— 2 mm 漂移悬崖 + 长 timeout 负累积，直线压穿不过大横向偏移；**按计划风险梯子缩 DR 后成立**。判别法 = 先 eval「A 在 B 分布上零样本」定分布可学性，再决定 resume / from-scratch / 缩 DR。
 - **代码落点（不入本仓库，依赖本机 IsaacLab editable 布局）**：env 包 `IsaacLab/source/isaaclab_tasks/isaaclab_tasks/direct/press/`（4 task id：`Isaac-Press-{Direct,Direct-B,07-Direct,07-B}-v0`）；harness `rl/{smoke,eval,record}_press.py`。训练/评测/录视频复现命令见 `rl_learning_press.md` §7。
 
-## 9. 遗留 / 边界 / 建议下一步
+## 9. 闭环连续按压 round（PressCycle，2026-09-09）
 
+> 自包含总结 + **MDP/相位机一览表**见 `docs/rl_learning_press_cycle.md`；根因诊断叙述见 `feasibility_mixed_press.md` §11。这里只放结论与关键事实（cycle 完成数 = `rl/eval_press_cycle.py` 逐拍读 `env.cycle_count` 遥测，非 done 事件）。
+
+- **学什么**：把「压到底即终止」的单拍微技能升级为**闭环连续任务（用户口径：可在自动化流水线部署）**——同一 clamp 自由瓶上 **PPO 真学重复多拍**，每拍都需掌心抬离、弹簧完全回弹（`|q|<0.0008`）再压；episode 不因首触底终止。3 相相位机 PRESS→HOLD→LIFT 由**本步物理后状态门控自动推进**（策略职责 = 真驱动含真抬回，门无法伪造）。
+- **结构与奖励修复（5 次停滞的共同根因）**：`cmd_pos.z` 在压底过程中无条件下积 → 命令埋到掌心下方几十 mm，LIFT 先爬「幽灵深度」才能真抬（对 PPO 不可探索）。修复 = ①每个相位过渡把命令位/姿态**重锚到掌心真实位姿**；②**LIFT 相专属命令深度下限**（`cmd_z ≥ palm_z − 0.0025`），压入 cap 的停滞不再埋命令。`probe_release_latency.py` 实测压底 87 步/0 赤字、80 步停滞后再抬 ~33 步完全回弹。
+- **训练（两段 resume）**：S1 dive 单拍锁相 warm-start → S2 开全相位机（LiftEasy 档 `h_return=0.012`，物理上已足够：接触 ~11.2 mm 断开、回弹完全）。s1 收敛 ~+28..+42，final `model_3199`（+38.6）。
+- **结果（s1）**：**~15.9 拍/局**（627 局共 9985 次完整 cycle）、cycle 完成瞬间回弹 `q≈-0.00028`（完全回弹 ✓）、瓶漂移 **0.28 mm/拍**；单 episode **同一瓶连续 8 拍 0 reset** 录像（`media/rl_press_cycle_s1.mp4`，1280×720@60、409 帧）。s1 策略零样本 → s07（同 easy-LIFT 门）：**~2.4 拍/局**（回弹干净 -0.00034、漂移 0.55 mm/拍，正的部分迁移）。单拍旧策略回归仍 **1.000**（3415/3415）。
+- **代码落点（不入本仓库，依赖本机 IsaacLab editable 布局）**：`direct/press/press_cycle_env.py` + `PressCycle*` cfg（`press_env_cfg.py`）+ 新增 task id `Isaac-PressCycle-{Dive,Direct,LiftEasy,07-Direct,07-LiftEasy}-Direct-v0`；harness `rl/{eval_press_cycle,record_press_cycle,probe_release_latency}.py`。
+
+## 10. 遗留 / 边界 / 建议下一步
+
+- **PressCycle 边界（详见 `rl_learning_press_cycle.md` §10）**：canonical 25 mm 抬升档未训成正奖励（12 mm 已物理足够，LiftEasy 为主交付）；**多拍累计漂移** —— 单 clamp 连续 ~16 拍后越 8 mm fail 带（0.28 mm/拍随机游走），s07 0.55 mm/拍 → 部署需 ~≤10 拍 re-dose/对心节奏，或未来按 cycle 放宽 fail 包络；s07 零样本为正的部分迁移（吞吐下降）；训练无 ContactSensor（nozzle q 作力代理）。
 - **RL round 遗留边界（详见 `rl_learning_press.md` §8）**：Stage B 宽 DR 初版不收敛、缩 DR 后成立；训练用 nozzle q 作力代理（真实 palm 力需单 env ContactSensor 复算）；抬回/回弹不训、eval 补判；奖励面「2 mm 漂移悬崖 + 长 timeout 负累积」限制更宽 reset 域（若需更宽，加 no-progress 终止 / 训练期放宽 drift gate / eval 收紧）。
 - **缩放 round 边界**：(a) 相机取景沿用 s=1.0 的 eye，短臂 + 0.28 m 垫座在帧内偏小，若想强调「臂变短」可拉近/降 eye 重出；(b) 质量未按 s³ 重标定（密度变大），gate 不受影响但接触力标定非本轮目标；(c) s≈0.6 需贴桌沿 + 高垫且 pad-down 退化，不取。
 - **钳移 / approach 撞击**：jaw 闭合带 ~0.1–3.4 mm 钳移，hover 多 seed 扫掠把被钳瓶撞偏 ~5 mm（`[recenter]` 已把按压期漂移压到 <0.3 mm）；若要求全程漂移 <2 mm，需消除扫掠撞击。
