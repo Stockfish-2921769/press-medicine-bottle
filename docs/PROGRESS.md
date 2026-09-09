@@ -1,9 +1,10 @@
 # 灵巧手按压药瓶喷嘴仿真 Demo —— 项目进展报告
 
-> 报告日期：2026-09-08
+> 报告日期：2026-09-09
 > 任务性质：纯仿真（Isaac Sim 5.1 / Isaac Lab）Demo，独立项目，与 CerebVLA / SomaVLA 无关。
-> 当前落地：**混形双手方案** = Panda 长爪（西侧，ALOHA 式 2 指平爪代用）钳住自由站异形药瓶 + iiwa7+Shadow **掌心(pad)朝下**压 cap 顶（触发喷嘴行程到底）→ 触觉判读 `USABLE`；随后按用户口径把**按压臂等比缩放 s=0.7 + 垫座立柱**重验通过（`USABLE`）。
-> 明细文档：`docs/feasibility_*.md`（按轮次归档），脚本/资产/视频见仓库目录。
+> 当前落地：**RL/PPO 学习按压 round** —— Stage A 两几何（s=1.0 / s=0.7+垫座）各训到 **100%**、跨几何零样本**双向 100%**、Stage B reset-DR 课程把 s1 在加宽复位分布下从 93.3% 补到 **100%**（见 §8 / `docs/rl_learning_press.md`，视频 `media/rl_press_*.mp4`）。
+> 前序地面真值 demo：**混形双手方案**（Panda 长爪钳自由瓶 + Shadow 掌心朝下压 cap，触觉判读 `USABLE`）与**按压臂等比缩放 s=0.7 + 垫座**重验均通过。
+> 明细文档：`docs/feasibility_*.md`（按轮次归档）+ **`docs/rl_learning_press.md`（RL 总结，含 MDP 一览表）**；脚本/资产/视频见仓库目录。
 
 ---
 
@@ -17,6 +18,7 @@
 | 演进方向 | 换**异形药瓶**（Ø42、参数化弹簧喷嘴），提高语义 =「一次握持内**环抱瓶身 + 按压喷嘴**」 | 逐步收敛出「**混形双手**」方案（见 §4 关键否定结论） |
 | 混形双手 | 固定端 Panda 长爪**钳住瓶身**（夹持摩擦 + 桌面承反力），按压端 Shadow **掌心朝下压 cap 顶**，用 pad 接触力 + nozzle 行程做**触觉判读**（未来 palm tactel 代用），并**记录触发瞬间力** | **M1–M4 全链路跑通**（2026-09-08） |
 | 缩放 round | 用户目视视频判「按压手所在机械臂过长」→ **等比缩小按压臂物理尺寸**；目标 = 尽量小但够得到原尺寸瓶口；**允许垫高基座**；只缩按压端 | `spawn.scale=0.7` + 0.28 m 垫座，**重验 USABLE**（2026-09-08，见 §6） |
+| RL/PPO 学习按压（计划书 Phase 3） | 把规则下压脚本换成 **PPO 真学**按压微技能：课程化两段（A 精确按压 → B 放宽 reset-DR 续训）+ 双几何（s1/s07）都训 + 跨几何零样本 | **完成**（2026-09-08 训练 / 09-09 归档，见 §8 与 `rl_learning_press.md`）|
 
 ---
 
@@ -31,10 +33,11 @@
 | `feasibility_shadow_singlehand` | 09-07 | 换 Shadow 24-DoF 单臂单手「握持 + 拇指压」 | ❌ **负结论**（arm 可达族 × Shadow 直链手不匹配）；Option A 挂载旋转亦负；侧向平移解锁 wrap 半边但 thumb 压仍不成 | 报告 |
 | `feasibility_mixed_press`（混形） | 09-08 | **双手**：Panda 长爪钳瓶 + Shadow palm 下压 | ✅ 全链路 `USABLE`（先 palm 朝上，用户目视判出 → 修正为 pad 朝下） | `media/mixed_press.mp4` |
 | `feasibility_mixed_press`（缩放 round） | 09-08 | 按压臂 `spawn.scale=0.7` + 垫座 | ✅ 重验 `USABLE`（触觉判读同一判据链） | `media/mixed_press_scaled.mp4` |
+| **RL/PPO 学习按压（§8 / `rl_learning_press.md`）** | 09-08/09 | PPO（rsl-rl）DirectRLEnv 真学按压微技能；两几何 s1/s07 × A/B | ✅ Stage A 两几何 100%、跨几何零样本双向 100%；Stage B 把 s1 DR 下 93.3→100%（s07 无增益） | `docs/rl_learning_press.md`、`media/rl_press_*.mp4` |
 
 > 注：任务计划书为 5 阶段（Phase 0 环境 / 1 场景 / 2 IK / 3 RL·PPO / 4 集成·视频·报告）。
-> 本仓库当前把 **Phase 3 RL/PPO 学习按压策略**整块挂起未做（未到），RL 环境接口位保留在 demo 判读处；
-> 上面的逐轮可行性迭代都属于「动作/几何定义」阶段。详见本项目 memory `project_press_demo.md`。
+> **Phase 3（RL/PPO 学习按压）已于 2026-09-09 落地**（真学策略，非规则脚本）：MDP 表/结果/边界见 §8 与 `docs/rl_learning_press.md`；
+> 上面的逐轮可行性迭代属于「动作/几何定义」阶段。详见本项目 memory `project_press_demo.md`。
 
 ---
 
@@ -150,24 +153,35 @@ assets/
 tools/                          # USD authoring 工具（生成上述资产）
 docs/
   PROGRESS.md                   # 本文（项目进展总览）
+  rl_learning_press.md          # RL/PPO 学习按压 round：MDP 一览表 + 总结（2026-09-09）
   feasibility_grasp_thumb_press.md     # 09-04 Allegro 握持+拇指压 → 负
   feasibility_hetero_press.md          # 09-04 异形长指按压 / 选定瓶 → 正(演示口径)
   geometry_envelope_hetero.md          # 09-05 几何可行域反推
   feasibility_shadow_singlehand.md     # 09-07 Shadow 单臂握持+按压 → 负
-  feasibility_mixed_press.md           # 09-08 混形双手 + palm-down 修正 + 缩放 round
+  feasibility_mixed_press.md           # 09-08 混形双手 + palm-down 修正 + 缩放 round + RL round §10
 media/
   press.mp4                   # Phase 1 食指按压（20.5s 960×540）
   mixed_press.mp4             # 混形双手 palm-down（21.15s 960×540@20fps）
   mixed_press_scaled.mp4      # 缩放 round s=0.7（~20.8s 960×540@20fps）
+  rl_press_s1.mp4 / rl_press_s07.mp4 / rl_press_s1B.mp4  # RL 策略滚动（1280×720@60fps）
 ```
 
 > 完整工作目录（含全部 58 个探针脚本、逐帧 PNG、扫描日志）在本机 `/home/ubuntu/press_demo/`（`isaac_demo/`、`outputs/`、`logs/`），仓库同步的是**关键产出**子集。
 
 ---
 
-## 8. 遗留 / 边界 / 建议下一步
+## 8. RL/PPO 学习按压 round（2026-09-09）
 
-- **RL/PPO 学习按压策略（计划书 Phase 3）未做**：属挂起整块，RL 环境接口位保留在 demo 触觉判读处；需时从该处接环境/奖励。
+> 自包含总结 + **MDP 一览表**见 `docs/rl_learning_press.md`；阶段内完整训练/诊断叙述见 `feasibility_mixed_press.md` §10。这里只放结论与关键事实（数值以 done 尖峰计数，`rl/eval_press.py`）。
+
+- **学什么**：把混形 demo 的规则下压换成 **PPO 真学**按压微技能 —— episode 从离线钳位快照 `rl/snapshots/recenter_s{1.00,0.70}.npz`（两几何各一）出发，策略输出 **3-DoF 世界系 task-space 残差**（clip±1、0.5 mm/步 @60 Hz，每步 1-step DLS→iiwa7 7 臂关节，手指锁名义）把掌心压到 nozzle 到底（`≤−0.0045`，91% travel）并稳住、不推偏瓶。**Panda 钳瓶 / Shadow 手指 / 抬回回弹不进训练**。obs **25 维全相对**；reward = 下压进展 `+0.25/mm` + 贴底带稳住 `+0.4` + 成功 `+10` + fail `−2` + 漂移 `−0.3/mm` + 动作率 `−0.02` + 臂速 `−0.01`（nozzle 关节位 q 作力/行程代理，力≈−K·q、K=300）。
+- **结果**：Stage A 两几何都快速收敛（<250 iter，128 envs SPS≈3300–3700）：s1 自评 **1.000**（2292）/ s07 零样本 **1.000**（2016）；s07 自评 **1.000**（2008）/ s1 零样本 **1.000**（2197）→ **跨几何双向 100%**。Stage B resume-A、只放宽 reset-DR（瓶 xy±0.5 mm/yaw 0.8°、臂关节 ±0.02 rad、基座 z±4 mm、命令 xy±1.5 mm）：把 s1 在 B(DR) 分布下从 A 的 **93.3%** 补到 **100%**（B_m1400，2241/2241）；s07 上 A 本身已 100%（2079）、B ≈ 平（98.8%，3004/3041）→ **课程收益几何相关**（只在小横向偏移会漏的 s1 上补 A）。
+- **教训（诚实）**：宽 DR 初版（臂关节 ±0.06 rad、cmd-xy ±3 mm）resume-A 崩 + from-scratch 也不学 —— 2 mm 漂移悬崖 + 长 timeout 负累积，直线压穿不过大横向偏移；**按计划风险梯子缩 DR 后成立**。判别法 = 先 eval「A 在 B 分布上零样本」定分布可学性，再决定 resume / from-scratch / 缩 DR。
+- **代码落点（不入本仓库，依赖本机 IsaacLab editable 布局）**：env 包 `IsaacLab/source/isaaclab_tasks/isaaclab_tasks/direct/press/`（4 task id：`Isaac-Press-{Direct,Direct-B,07-Direct,07-B}-v0`）；harness `rl/{smoke,eval,record}_press.py`。训练/评测/录视频复现命令见 `rl_learning_press.md` §7。
+
+## 9. 遗留 / 边界 / 建议下一步
+
+- **RL round 遗留边界（详见 `rl_learning_press.md` §8）**：Stage B 宽 DR 初版不收敛、缩 DR 后成立；训练用 nozzle q 作力代理（真实 palm 力需单 env ContactSensor 复算）；抬回/回弹不训、eval 补判；奖励面「2 mm 漂移悬崖 + 长 timeout 负累积」限制更宽 reset 域（若需更宽，加 no-progress 终止 / 训练期放宽 drift gate / eval 收紧）。
 - **缩放 round 边界**：(a) 相机取景沿用 s=1.0 的 eye，短臂 + 0.28 m 垫座在帧内偏小，若想强调「臂变短」可拉近/降 eye 重出；(b) 质量未按 s³ 重标定（密度变大），gate 不受影响但接触力标定非本轮目标；(c) s≈0.6 需贴桌沿 + 高垫且 pad-down 退化，不取。
 - **钳移 / approach 撞击**：jaw 闭合带 ~0.1–3.4 mm 钳移，hover 多 seed 扫掠把被钳瓶撞偏 ~5 mm（`[recenter]` 已把按压期漂移压到 <0.3 mm）；若要求全程漂移 <2 mm，需消除扫掠撞击。
 - **palm 触觉粒度**：现为 `ContactSensor` 法向合力代用；真实 palm tactel 阵列→压力图建模未做，接口位已留。

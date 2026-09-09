@@ -2,8 +2,8 @@
 
 灵巧手按压药瓶喷嘴仿真 Demo（独立任务，与 CerebVLA / SomaVLA 项目无关）。纯仿真，环境 = Isaac Sim 5.1 / Isaac Lab。
 
-**当前状态（2026-09-08）：混形双手 palm-down + 按压臂缩放 round 全链路跑通（`USABLE`）。**
-详细进展报告见 **`docs/PROGRESS.md`**；逐轮可行性结论见 `docs/feasibility_*.md`。
+**当前状态（2026-09-09）：RL/PPO 学习按压 round 完成** —— Stage A 两几何（s1/s07）各训到 100%、跨几何零样本**双向 100%**、Stage B reset-DR 课程把 s1 在加宽复位分布下从 93.3% 补到 100%（视频 `media/rl_press_*.mp4`）。
+详细进展报告见 **`docs/PROGRESS.md`**；逐轮可行性结论见 `docs/feasibility_*.md`；**RL 总结报告（含 MDP 一览表）见 `docs/rl_learning_press.md`**。
 
 ## 现状一句话
 
@@ -13,6 +13,7 @@ iiwa7+Shadow **掌心(pad)朝下压 cap 顶**，nozzle 行程到底（91% travel
 随后按用户口径把**按压臂等比缩小 s=0.7 + 0.28 m 垫座立柱**重验通过（`USABLE`，`media/mixed_press_scaled.mp4`）。
 
 视频：
+- `media/rl_press_s1.mp4` / `media/rl_press_s07.mp4` / `media/rl_press_s1B.mp4` —— RL 策略滚动（Stage A 两几何 + Stage B DR，1280×720@60fps，各含 3 次成功按压+自动 reset）
 - `media/mixed_press.mp4` —— 混形双手 palm-down（s=1.0，21.15s 960×540）
 - `media/mixed_press_scaled.mp4` —— 缩放 round（s=0.7 + 垫座，~20.8s 960×540）
 - `media/press.mp4` —— Phase 1 食指按压（历史）
@@ -34,7 +35,8 @@ assets/
 tools/                    # USD authoring（生成上列资产）
 docs/
   PROGRESS.md             # ★ 项目进展总览（里程碑/当前方案/复现/遗留）
-  feasibility_mixed_press.md    # 混形双手 + palm-down 修正 + 缩放 round（2026-09-08）
+  rl_learning_press.md    # RL/PPO 学习按压 round：MDP 一览表 + 总结（2026-09-09）
+  feasibility_mixed_press.md    # 混形双手 + palm-down 修正 + 缩放 round + RL round §10（2026-09-08/09）
   feasibility_shadow_singlehand.md  # Shadow 单臂握持+按压 → 负（2026-09-07）
   geometry_envelope_hetero.md    # 几何可行域反推（2026-09-05）
   feasibility_hetero_press.md    # 异形长指按压/选定瓶 → 正(演示口径)（2026-09-04）
@@ -43,6 +45,7 @@ media/
   press.mp4               # Phase 1 食指按压
   mixed_press.mp4         # 混形双手 palm-down（s=1.0）
   mixed_press_scaled.mp4  # 缩放 round（s=0.7 + 垫座）
+  rl_press_s1.mp4 / rl_press_s07.mp4 / rl_press_s1B.mp4  # RL 策略滚动（见 rl_learning_press.md §6）
 ```
 
 ## 运行环境与复现
@@ -74,6 +77,7 @@ env -u DISPLAY ./isaaclab.sh -p /path/to/press_repo/scripts/demo_mixed_press.py 
 | Shadow 单臂「握持 + 拇指压」 | 09-07 | ❌ 负结论 |
 | **混形双手 palm-down** | 09-08 | ✅ `USABLE`（`media/mixed_press.mp4`） |
 | **按压臂缩放 s=0.7 + 垫座** | 09-08 | ✅ `USABLE`（`media/mixed_press_scaled.mp4`） |
+| **RL/PPO 学习按压（Phase 3）** | 09-09 | ✅ 两几何 100% + 双向零样本 100% + Stage B 课程（`docs/rl_learning_press.md`，视频 `media/rl_press_*.mp4`） |
 
-> 任务计划书为 5 阶段；当前把 Phase 3（RL/PPO 学习按压）整块挂起未做，RL 环境接口位保留在 demo 触觉判读处。
-> 遗留/边界与建议下一步详见 `docs/PROGRESS.md` §8。
+> 任务计划书为 5 阶段；Phase 3（RL/PPO 学习按压）本轮已完成（当前是计划书中"真学按压策略"的落地，非规则脚本）。
+> 遗留/边界与建议下一步详见 `docs/PROGRESS.md` §9。

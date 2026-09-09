@@ -204,3 +204,103 @@ M1 扫描日志：`logs/{probe_scale_s08,probe_scale_s07,probe_scale_s07_h30}.lo
 - Panda 未缩（夹持口径要求不变）；若日后想整体协调，Panda/瓶同步缩是另口径，未做。
 
 日志/视频：缩放 round 见上；对照 s=1.0 基线 `logs/demo_mixed_press.log` + `outputs/mixed_press.mp4`。
+
+---
+
+## 10. RL 学习 round：PPO 真学按压微技能（课程化两段 + 双几何 + 零样本）
+
+> 用户拍板（2026-09-08）：把上面纯规则脚本（IK hover → 直线下压 → 触底判据）换成 **PPO 真学** 的按压策略。scope = **课程化两段**（Stage A 先学按压微技能 → Stage B 放宽 reset 域续训）+ **两版都训**（s=1.0 与 s=0.7+垫座都训，A/B 各一）。模型 = 同一个 PPO actor-critic MLP（A、B 同网同观测/动作维，B = resume A 权重只放宽 reset/DR 分布）。
+> 结果一句话：**Stage A 两几何都 100%，跨几何零样本双向 100%（s1↔s07 同策略直接换任务零训练）**；Stage B 的 reset-DR 课程把 A 在加宽 reset 分布下的 93.3% 补到 **100%** —— 课程化有效。
+
+### 10.1 包 / 任务注册（isaaclab_tasks 内，editable 自动发现）
+
+```
+IsaacLab/source/isaaclab_tasks/isaaclab_tasks/direct/press/
+  press_env.py       # PressEnv(DirectRLEnv)：scene/indices/IK-warmstart/action/obs/rew/dones/reset
+  press_env_cfg.py   # PressEnvCfg(全部 MDP/DR/episode knobs) + Press1EnvCfg(A,B) / Press07EnvCfg(A,B)
+  agents/rsl_rl_ppo_cfg.py  # PressPPORunnerCfg（A/B 同 cfg）
+  __init__.py        # gym.register 4 task id
+```
+task id → env cfg：`Isaac-Press-Direct-v0`(s1 A) / `-B-v0`(s1 B, 加宽 DR) / `Isaac-Press-07-Direct-v0`(s07 A) / `-07-B-v0`(s07 B)。资产 cfg 复用 demo 的 `_kuka_shadow_cfg.py` / `_panda_longjaw_cfg.py`（只改 prim-path/pose/scale），reset 态来自 `rl/snapshots/recenter_s{1.00,0.70}.npz`（demo_mixed_press.py --snap_dir 离线钳位平衡快照）。N-env 克隆（`num_envs=128, replicate_physics=True`）；ContactSensor 不进多 env 训练场景 → reward/终止用 nozzle 关节位 q 作力/行程代用（力≈−K·q，平滑已验证）；真实 palm 力 gate 由 demo/eval 单 env 复算。
+
+### 10.2 MDP（两几何共用一套相对 MDP → 靠它做零样本）
+
+- **动作 = 3-DoF 世界系 task-space 残差 (dx,dy,dz)**：clip ±1，每步 0.5 mm（`action_scale=5e-4`）@60Hz（`sim.dt=1/120, decimation=2`），`_apply_action` 内每决策步 1-step DLS 映到 7 臂关节（手指锁名义、Panda 脚本钳位不学）。几何无关 → s1 策略能零样本开 s07 的根因之一。
+- **观测 = 25 维全相对/归一**：nozzle q,dq(2)；palm→cap xy err(2)、palm 高于 cap 平面 dz(1)；瓶漂移 xy(2)；7 臂关节相对 hover offset(7)+vel(7)；palm 垂速(1)；prev act(3)。
+- **Reward（nozzle 行程 q<0 为下压）**：下压进展 `+0.25/mm·Δq` + 触底带稳住 `+0.4`（q∈[−0.0054,−0.0035] ∧ drift<2mm ∧ |q̇|<0.01）+ 成功大稀疏 `+10`（q≤−0.0045 ∧ drift<2mm，随即终止）+ 脱落/推偏 `−2`/`−0.3/mm·drift` + 动作率 `−0.02` + 臂速 `−0.01`。episode 8 s（480 步）。Dones：success | falloff（palm 下探过头无行程）| drift_fail(>8mm) | timeout。
+- **Reset = IK warm-start**：每 episode 从快照钳位形 + 当前 palm FK 为命令初值开跑（相对量 → reset 域放宽时策略天然鲁棒）；Stage B 在其上加 DR。
+
+### 10.3 PPO / 训练设置（镜 allegro_hand rsl-rl cfg）
+
+`num_envs=128`，hidden `[512,256,128]`(elu) + obs 归一，`num_steps_per_env=24, epochs=5, mini_batches=4, lr=3e-4(adaptive), clip=0.2, ent=0.005, gamma=0.99, lam=0.95, desired_kl=0.012, max_grad_norm=1.0`，save_interval=100。128 envs 单卡 SPS≈3300–3700（~1s/iter）。**Stage A 收敛极快（<250 iter）**，模型已近乎最优直线下压（成功 episode 首触 ~55 决策步 ≈ 直线俯冲，与 demo 68–89 物理步同量级，60Hz 下 55 决策步≈110 物理步接近）。
+
+### 10.4 验收 harness（项目侧 `isaac_demo/rl/`）
+
+- `smoke_press.py`（M1 gate）：registry→gym.make→reset→5 步零动作，断言 obs/rew 形状无 NaN，`SMOKE_OK`；`--drive` 开环恒 −z 下压验证 DLS 伺服能把 palm 压到触底不推偏。
+- `eval_press.py`（M4 gate）：OnPolicyRunner 载 ckpt→`get_inference_policy`→N 步 rollout。**成功计数口径**：DirectRLEnv 在 step() 内自动 reset 终止 sub-env → 终止后状态读不到 → 用 done 事件上的 reward 尖峰判别（success≈+10；falloff/drift≈−2..−4），`rew>2.0` 即成功。任何已注册 press task 都能跑 → 兼作跨几何零样本 harness。
+- `record_press.py`（M5 视频）：同 eval_press 载 ckpt，但 `gym.make(..., render_mode="rgb_array")` + `env_cfg.viewer.eye/lookat`（= demo 取景，指向 env_0）+ 每决策步 `env.unwrapped.render(recompute=False)` 抓帧写 mp4（headless 需 `--enable_cameras`）。DirectRLEnv 每成功一次即自动 reset → 长 clip 里看到多次重复成功按压。
+
+### 10.5 结果（成功率先行，均为 done 尖峰计数）
+
+**Stage A —— 两几何收敛 + 双向零样本 100%**：
+
+| ckpt（训练） | eval task | episodes | success_rate |
+|---|---|---|---|
+| A_s1 m100（s1，seed0） | Isaac-Press-Direct-v0 (s1) | 2292 | **1.000**（首触 mean 55.4 med 55.0 min54 max57） |
+| A_s1 m100 | Isaac-Press-07-Direct-v0 (s07，零样本) | 2016 | **1.000** |
+| A_s07 m600（s07，seed0） | Isaac-Press-07-Direct-v0 (s07) | 2008 | **1.000** |
+| A_s07 m600 | Isaac-Press-Direct-v0 (s1，零样本反向) | 2197 | **1.000** |
+
+- s1 训练奖励曲线：mean reward ~0 → **+3.9 @iter117 → 平台 +4.5**（ep 54.4）；s07 类似、平台 ~+6.5（ep 64）。训练 SPS ~3700（128 envs）。
+- 运行目录：`logs/rsl_rl/press_A_s1/2026-09-08_15-58-57/`（seed0，~900 iters 收敛即停）、`logs/rsl_rl/press_A_s07/2026-09-08_16-16-08/`（seed0）。
+
+**Stage B —— reset-DR 课程（结果：把 A 在加宽 reset 下的成功率补到 100%）**：
+
+- B 的 reset DR 初版（臂关节 ±0.06 rad、cmd-xy ±3 mm，另瓶 xy±0.5mm/yaw0.8°/基座 z±4mm）**不收敛**：resume-A 直接崩（reward +3 → −50、critic value loss 80–180 发散）；from-scratch 也 250 iter 仍近随机（std 1.4）。根因 = 该分布把直线下压技能放到「2mm 漂移奖励悬崖 + 长驻 timeout 漂移罚」里，宽 palm 横向偏移的重置让策略穿不过针眼。**按计划风险梯子缩 DR**：臂关节 ±0.06→**0.02 rad**、cmd-xy ±3→**1.5 mm**（瓶/基座档保留）。A(s1) 在缩后的 B 分布上零样本 = **93.3%**（1205/1292）→ 留 ~7% 大横向偏移重置是 B 要补的。
+- **resume-B(s1)（缩后 DR，seed1）稳定**：reward 平 ~+2.0–2.6（不发散，DR 起始带少量惩罚故均值低于 A 的 +4.5，头号指标是成功率），run `logs/rsl_rl/press_B_s1/2026-09-08_16-39-35/`。**晚期 ckpt model_1400 在 B(s1)(DR) 任务上 = 100%（2241/2241）** —— B 把 A 漏掉的 ~7% 横向偏移重置救回来，**s1 两段课程成立**。
+- **Stage B(s07)**（resume A_s07 m600 → `logs/rsl_rl/press_B_s07/2026-09-08_16-52-43/`，model_1200）：**A_s07 在 07-B(DR) 上已 100%（2079/2079）**；B_s07 model_1200 在 07-B(DR) = **98.8%（3004/3041）** ≈ 平。即 **s07 上 Stage A 本身已对缩后 DR 全鲁棒，Stage B 无增益**（诚实记录：两段课程的收益是几何相关的 —— 只在小横向偏移重置会漏的 s1 上把 93.3% 补到 100%）。
+
+### 10.6 复现
+
+```bash
+cd /home/ubuntu/press_demo/IsaacLab && source ~/miniconda3/etc/profile.d/conda.sh && conda activate env_isaaclab
+# Stage A(s1) 训练 + 自评 + 跨几何零样本
+env -u DISPLAY ./isaaclab.sh -p scripts/reinforcement_learning/rsl_rl/train.py --task Isaac-Press-Direct-v0 \
+  --num_envs 128 --headless --seed 0 --max_iterations 3000 --experiment_name press_A_s1
+env -u DISPLAY ./isaaclab.sh -p ../isaac_demo/rl/eval_press.py --task Isaac-Press-Direct-v0 --headless --num_envs 32 \
+  --checkpoint logs/rsl_rl/press_A_s1/<run>/model_<N>.pt
+env -u DISPLAY ./isaaclab.sh -p ../isaac_demo/rl/eval_press.py --task Isaac-Press-07-Direct-v0 --headless --num_envs 32 \
+  --checkpoint logs/rsl_rl/press_A_s1/<run>/model_<N>.pt     # 跨几何零样本
+# Stage B(s1) resume（缩后 DR）
+env -u DISPLAY ./isaaclab.sh -p scripts/reinforcement_learning/rsl_rl/train.py --task Isaac-Press-Direct-B-v0 \
+  --resume --load_run <A-run> --checkpoint model_900.pt --num_envs 128 --headless --seed 1 \
+  --max_iterations 1500 --experiment_name press_B_s1
+```
+（B(s1) resume 需要把 A run 目录软链到 `logs/rsl_rl/press_B_s1/` 下同名子目录，或直接复用同一 `experiment_name` root。）
+
+### 10.7 相对规则 demo 的口径 / 边界
+
+- **成功判据不变**：nozzle 到底（≤−0.0045，91% travel）+ 按压期瓶漂移 <2 mm；RL 版不训「抬回/回弹」，回弹由 demo/eval 判读脚本补（成功率高时回弹 ≈0 已在 demo 验证）。Stage A 奖励面成功触发即终止，正是把「压到并稳住」学成了 ~55 步直线最优。
+- **力 gate**：训练 env 用 q 代理（K300 → 到底 −0.0045 ⇔ 反力 1.37 N，与 demo 触发判据同量级）；真实 palm 接触力由 demo（ContactSensor）在单 env 复算，RL 版不装。
+- **跨几何 100% 是设计红利不是巧合**：obs 全相对 + 3-DoF task-space 动作 + IK warm-start 从当前 palm 出发 → s1 策略在 s07（0.7 臂 + 0.28m 垫座、不同 jacobian 尺度）上零样本即成立；这也是「双几何都训」之外、比计划更早关闭跨几何 gate 的原因。
+- **Stage B 宽 DR 初版不收敛**已在 10.5 记录（缩 DR 后成立）；若日后要更宽 reset 域，需先处理「2mm 漂移悬崖 + 长 timeout 负累积」的奖励面（例如给 timeout 前加 no-progress 终止，或放宽训练期 drift gate 收紧 eval）。
+- 收敛/评估日志与 checkpoints：`logs/rsl_rl/press_{A,B}_s{1,07}/…`；eval 落点 `EVAL_DONE`/`success_rate=…`。
+
+### 10.8 RL 视频归档（M5）
+
+产物（项目侧 `isaac_demo/outputs/`，1280×720、60fps、~3–4 s，每 clip 内含多次成功按压 + 自动 reset）：
+
+| clip | ckpt | task | 备注 |
+|---|---|---|---|
+| `outputs/rl_press_s1.mp4` | press_A_s1 model_100 | Isaac-Press-Direct-v0 | 200 控制步内 3 次成功 |
+| `outputs/rl_press_s07.mp4` | press_A_s07 model_600 | Isaac-Press-07-Direct-v0 | 同上（缩放+垫座几何） |
+| `outputs/rl_press_s1B.mp4` | press_B_s1 model_1400 | Isaac-Press-Direct-B-v0 | 缩后 DR 复位（含横向偏移瓶）仍成功 |
+
+复现（headless RGB 需 `--enable_cameras`；取景 eye=(0.15,0.95,1.35)/lookat=(0,0.02,0.52) 对齐 demo）：
+
+```bash
+env -u DISPLAY ./isaaclab.sh -p ../isaac_demo/rl/record_press.py --headless --enable_cameras \
+  --task Isaac-Press-Direct-v0 --num_envs 1 \
+  --checkpoint logs/rsl_rl/press_A_s1/2026-09-08_15-58-57/model_100.pt \
+  --video ../isaac_demo/outputs/rl_press_s1.mp4 --steps 200
+```
