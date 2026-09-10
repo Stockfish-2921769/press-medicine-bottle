@@ -2,8 +2,8 @@
 
 灵巧手按压药瓶喷嘴仿真 Demo（独立任务，与 CerebVLA / SomaVLA 项目无关）。纯仿真，环境 = Isaac Sim 5.1 / Isaac Lab。
 
-**当前状态（2026-09-09）：闭环连续按压（PressCycle）round 完成** —— PPO 真学「下压→HOLD→抬回回弹→再压」**同瓶多拍连续循环**：s1 ~15.9 拍/局、回弹 q≈-0.00028、漂移 0.28 mm/拍；视频 = **单 episode 同一 clamp 自由瓶连续 8 拍、0 次 reset**。前一轮 RL 单拍微技能：Stage A 两几何各 100%、跨几何零样本双向 100%、Stage B 把 s1 在加宽复位分布下从 93.3% 补到 100%。
-详细进展报告见 **`docs/PROGRESS.md`**；逐轮可行性结论见 `docs/feasibility_*.md`；**闭环连续 RL 总结见 `docs/rl_learning_press_cycle.md`**，单拍 RL 总结见 `docs/rl_learning_press.md`。
+**当前状态（2026-09-09）：流水线换瓶按压（PressLine）round 完成** —— 在剂量-配额多拍基础上，**长爪开/合（换瓶）也交给 RL 真学**（第 4 个 action DoF）：一瓶达额 3 拍即自动张爪释放 → 新瓶就位 → 合爪抓稳 → 再压下一瓶，**单工位连续多瓶**。s1 nominal **5.95 瓶/局、每瓶 3.21 拍（配额 3）**、87% episode 撑满 1200 步、drift_fail=0；视频 = **单 episode 连续 4 次换瓶、0 reset**。诚实边界：跨瓶高 / 跨尺度（s07）零样本为负（策略绑 nominal 几何）。上游 PressCycle round：同瓶多拍循环 s1 ~15.9 拍/局；单拍微技能 Stage A 两几何各 100%。
+详细进展报告见 **`docs/PROGRESS.md`**；逐轮可行性结论见 `docs/feasibility_*.md`；**流水线换瓶 RL 总结见 `docs/rl_learning_press_line.md`**（设计 `docs/rl_press_line_design.md`），闭环连续按压总结见 `docs/rl_learning_press_cycle.md`，单拍 RL 总结见 `docs/rl_learning_press.md`。
 
 ## 现状一句话
 
@@ -14,6 +14,7 @@ iiwa7+Shadow **掌心(pad)朝下压 cap 顶**，nozzle 行程到底（91% travel
 RL round 把规则下压换成 **PPO 真学**（单拍微技能 → 闭环同瓶多拍连续循环，面向自动化流水线部署）。
 
 视频：
+- `media/rl_press_line_s1.mp4` —— **流水线换瓶按压**（PressLine，s1 nominal）：RL 策略单 episode 同一工位**连续 4 次换瓶**（每次 3 拍达额后爪张开放瓶→新瓶→合爪抓稳）、0 reset，1280×720@60fps、704 帧
 - `media/rl_press_cycle_s1.mp4` —— **闭环连续按压**（PressCycle，s1 LiftEasy）：RL 策略单 episode 同一 clamp 瓶连续 8 拍、0 reset，1280×720@60fps、409 帧
 - `media/rl_press_s1.mp4` / `media/rl_press_s07.mp4` / `media/rl_press_s1B.mp4` —— RL 单拍策略滚动（Stage A 两几何 + Stage B DR，1280×720@60fps，各含 3 次成功按压+自动 reset）
 - `media/mixed_press.mp4` —— 混形双手 palm-down（s=1.0，21.15s 960×540）
@@ -37,6 +38,8 @@ assets/
 tools/                    # USD authoring（生成上列资产）
 docs/
   PROGRESS.md             # ★ 项目进展总览（里程碑/当前方案/复现/遗留）
+  rl_learning_press_line.md     # 流水线换瓶 round：剂量配额 + RL 学夹爪换瓶 MDP + 总结（2026-09-09）
+  rl_press_line_design.md       # 流水线换瓶 round：设计（几何可行域 → 5 相 MDP/课程）（2026-09-09）
   rl_learning_press_cycle.md    # 闭环连续按压 round：同瓶多拍相位 MDP + 总结（2026-09-09）
   rl_learning_press.md    # RL/PPO 学习按压 round：MDP 一览表 + 总结（2026-09-09）
   feasibility_mixed_press.md    # 混形双手 + palm-down 修正 + 缩放 round + RL round §10（2026-09-08/09）
@@ -45,9 +48,11 @@ docs/
   feasibility_hetero_press.md    # 异形长指按压/选定瓶 → 正(演示口径)（2026-09-04）
   feasibility_grasp_thumb_press.md # Allegro 握持+拇指压 → 负（2026-09-04）
 media/
+  rl_press_line_s1.mp4    # 流水线换瓶（PressLine，s1）：单 episode 连续 4 次换瓶 0 reset（见 rl_learning_press_line.md §4）
   press.mp4               # Phase 1 食指按压
   mixed_press.mp4         # 混形双手 palm-down（s=1.0）
   mixed_press_scaled.mp4  # 缩放 round（s=0.7 + 垫座）
+  rl_press_cycle_s1.mp4   # 闭环连续按压（PressCycle，s1）：同瓶连续 8 拍 0 reset
   rl_press_s1.mp4 / rl_press_s07.mp4 / rl_press_s1B.mp4  # RL 策略滚动（见 rl_learning_press.md §6）
 ```
 

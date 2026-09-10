@@ -312,3 +312,11 @@ env -u DISPLAY ./isaaclab.sh -p ../isaac_demo/rl/record_press.py --headless --en
 > 用户拍板（2026-09-09）：把「压到底即终止」的单拍微技能升级为「**闭环连续任务、可在自动化流水线部署**」——同一 clamp 自由瓶上**重复按压多拍**，每拍都需掌心抬离、弹簧完全回弹再压；episode 不因首触底终止。
 > **自包含总结报告 = `rl_learning_press_cycle.md`**（本文件只放指针）：3 相相位状态机 PRESS→HOLD→LIFT（传感器门控自动推进、策略真学抬回）+ 两段 dive→cycle 课程 + 命令积分债根因修复。代码 = `press_cycle_env.py` / `PressCycle*` cfg / 5 个新增 task id。
 > 结果一句话：s1 训到 **~15.9 拍/局**（9985 次完整 cycle、回弹 q≈-0.00028、漂移 0.28 mm/拍）、单 episode **同一瓶连续 8 拍 0 reset** 视频；s07 零样本为正的部分迁移（~2.4 拍/局）；单拍回归仍 100%。边界：canonical 25 mm 抬升档未训成正奖励（12 mm 已物理足够）；多拍累计漂移 ~16 拍后越 8 mm fail 带。
+
+---
+
+## 12. 流水线换瓶按压 round（PressLine，剂量配额 + RL 学夹爪换瓶）
+
+> 用户口径（2026-09-09）：自动化流水线上**夹爪抓不同瓶子 → 按压 → 抬升 → 松开本瓶 → 抓下一瓶**、任务连续。
+> **自包含总结报告 = `rl_learning_press_line.md`**（本文件只放指针）：在 PressCycle 的 dose 相之上加 clamp EXCHANGE（两子相 3 EXCH_OPEN / 4 EXCH_CLOSE），长爪开/合为**第 4 个真学 action DoF**，门全部传感器推进；obs 31 / act 4，三段课程 dive→cyclic→line。
+> 结果一句话：s1 nominal **5.95 瓶/局**、每瓶 3.21 拍（配额 3）、87% episode 撑满 1200 步、drift_fail=0；视频单 episode **连续 4 次换瓶 0 reset**；单拍回归 100%。诚实边界：**跨瓶高（zc0565/zc0605）与跨尺度（s07）零样本为负**（策略绑 nominal 几何）；混合几何单段连续受 instanced-env 架构限制不支持。

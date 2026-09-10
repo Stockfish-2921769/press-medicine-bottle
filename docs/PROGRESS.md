@@ -2,7 +2,7 @@
 
 > 报告日期：2026-09-09
 > 任务性质：纯仿真（Isaac Sim 5.1 / Isaac Lab）Demo，独立项目，与 CerebVLA / SomaVLA 无关。
-> 当前落地：**闭环连续按压（PressCycle）round** —— PPO 真学「下压→HOLD→抬回回弹→再压」**同瓶多拍循环**（单 episode 连续 8 拍 0 reset 视频、s1 ~15.9 拍/局、回弹 q≈-0.00028、漂移 0.28 mm/拍，见 §9 / `docs/rl_learning_press_cycle.md`，视频 `media/rl_press_cycle_s1.mp4`）。前一轮 RL 单拍微技能：Stage A 两几何 100%、跨几何零样本双向 100%、Stage B 把 s1 DR 下 93.3% 补到 100%（见 §8 / `rl_learning_press.md`）。
+> 当前落地：**流水线换瓶按压（PressLine）round** —— PPO 真学「剂量配额多拍 + 长爪开/合换瓶（第 4 DoF）」单工位连续多瓶（单 episode 连续 4 次换瓶 0 reset 视频、s1 nominal 5.95 瓶/局、3.21 拍/瓶，见 §11 / `docs/rl_learning_press_line.md`，视频 `media/rl_press_line_s1.mp4`）。上游闭环连续按压（PressCycle）：同瓶多拍 s1 ~15.9 拍/局（见 §9 / `rl_learning_press_cycle.md`）；单拍微技能：Stage A 两几何 100%、Stage B 把 s1 DR 下 93.3% 补到 100%（见 §8 / `rl_learning_press.md`）。
 > 前序地面真值 demo：**混形双手方案**（Panda 长爪钳自由瓶 + Shadow 掌心朝下压 cap，触觉判读 `USABLE`）与**按压臂等比缩放 s=0.7 + 垫座**重验均通过。
 > 明细文档：`docs/feasibility_*.md`（按轮次归档）+ **`docs/rl_learning_press_cycle.md`（闭环连续 RL 总结）** / `docs/rl_learning_press.md`（单拍 RL 总结）；脚本/资产/视频见仓库目录。
 
@@ -20,6 +20,7 @@
 | 缩放 round | 用户目视视频判「按压手所在机械臂过长」→ **等比缩小按压臂物理尺寸**；目标 = 尽量小但够得到原尺寸瓶口；**允许垫高基座**；只缩按压端 | `spawn.scale=0.7` + 0.28 m 垫座，**重验 USABLE**（2026-09-08，见 §6） |
 | RL/PPO 学习按压（计划书 Phase 3） | 把规则下压脚本换成 **PPO 真学**按压微技能：课程化两段（A 精确按压 → B 放宽 reset-DR 续训）+ 双几何（s1/s07）都训 + 跨几何零样本 | **完成**（2026-09-08 训练 / 09-09 归档，见 §8 与 `rl_learning_press.md`）|
 | 闭环连续按压（PressCycle） | 「**可在自动化流水线部署的连续任务**」：同一 clamp 自由瓶上 **PPO 真学重复多拍**（3 相相位机 PRESS→HOLD→LIFT，门控自动推进），每拍抬离让弹簧完全回弹再压，episode 不因首触底终止 | **完成**（2026-09-09，见 §9 与 `rl_learning_press_cycle.md`）|
+| 流水线换瓶按压（PressLine） | 自动流水线上**夹爪抓不同瓶子 → 按压 → 抬升 → 松开本瓶 → 抓下一瓶**、任务连续；换瓶（长爪开/合）**交给 RL 真学**（第 4 DoF），瓶达剂量配额即换 | **完成**（2026-09-09，见 §11 与 `rl_learning_press_line.md`）|
 
 ---
 
@@ -36,9 +37,10 @@
 | `feasibility_mixed_press`（缩放 round） | 09-08 | 按压臂 `spawn.scale=0.7` + 垫座 | ✅ 重验 `USABLE`（触觉判读同一判据链） | `media/mixed_press_scaled.mp4` |
 | **RL/PPO 学习按压（§8 / `rl_learning_press.md`）** | 09-08/09 | PPO（rsl-rl）DirectRLEnv 真学按压微技能；两几何 s1/s07 × A/B | ✅ Stage A 两几何 100%、跨几何零样本双向 100%；Stage B 把 s1 DR 下 93.3→100%（s07 无增益） | `docs/rl_learning_press.md`、`media/rl_press_*.mp4` |
 | **闭环连续按压（§9 / `rl_learning_press_cycle.md`）** | 09-09 | PressCycle 相位机 MDP（PRESS→HOLD→LIFT）同瓶多拍；dive→cycle 两段课程 + 命令积分债结构修复 | ✅ s1 ~15.9 拍/局（9985 cycle、回弹 q≈-0.00028、漂移 0.28 mm/拍）、录像单 episode 连续 8 拍 0 reset；s07 零样本部分迁移 ~2.4 拍/局；单拍回归 100% | `docs/rl_learning_press_cycle.md`、`media/rl_press_cycle_s1.mp4` |
+| **流水线换瓶（§11 / `rl_learning_press_line.md`）** | 09-09 | PressLine 5 相 MDP：dose 配额 + RL 学长爪 EXCHANGE（换瓶第 4 DoF）；obs31/act4 三段 dive→cyclic→line | ✅ s1 nominal **5.95 瓶/局、3.21 拍/瓶（配额 3）**、87% episode 撑满 1200 步、drift_fail=0；录像单 episode 连续 4 次换瓶 0 reset；单拍回归 100%。边界：跨瓶高 / s07 零样本为负 | `docs/rl_learning_press_line.md`、`docs/rl_press_line_design.md`、`media/rl_press_line_s1.mp4` |
 
 > 注：任务计划书为 5 阶段（Phase 0 环境 / 1 场景 / 2 IK / 3 RL·PPO / 4 集成·视频·报告）。
-> **Phase 3（RL/PPO 学习按压）已于 2026-09-09 落地**（真学策略，非规则脚本）：单拍微技能 MDP 表/结果/边界见 §8 与 `docs/rl_learning_press.md`；**闭环连续按压（PressCycle，同瓶多拍）见 §9 与 `docs/rl_learning_press_cycle.md`**。
+> **Phase 3（RL/PPO 学习按压）已于 2026-09-09 落地**（真学策略，非规则脚本）：单拍微技能 MDP 表/结果/边界见 §8 与 `docs/rl_learning_press.md`；**闭环连续按压（PressCycle，同瓶多拍）见 §9 与 `docs/rl_learning_press_cycle.md`**；**流水线换瓶按压（PressLine，剂量配额 + RL 学长爪换瓶）见 §11 与 `docs/rl_learning_press_line.md`**。
 > 上面的逐轮可行性迭代属于「动作/几何定义」阶段。详见本项目 memory `project_press_demo.md`。
 
 ---
@@ -201,3 +203,13 @@ media/
 - **palm 触觉粒度**：现为 `ContactSensor` 法向合力代用；真实 palm tactel 阵列→压力图建模未做，接口位已留。
 - **Panda 未缩**：夹持口径（爪口/Ø42 瓶比）要求不变；若日后想整幅协调，Panda/瓶同步缩是另一口径。
 - **相机取景**：本会话后端非多模态，无法逐帧目检构图；若需精调机位请人工抽帧确认。
+
+## 11. 流水线换瓶按压 round（PressLine，2026-09-09）
+
+> 用户口径：自动化流水线上**夹爪抓不同瓶子 → 按压 → 抬升 → 松开本瓶 → 抓下一瓶**、任务连续。设计 = `docs/rl_press_line_design.md`；自包含总结 + **5 相 MDP/奖励表** = `docs/rl_learning_press_line.md`。这里只放结论与关键事实（瓶/局、拍/瓶 = `rl/eval_press_line.py` 读 `bottle_count/cycle_count` 遥测）。
+
+- **学什么**：在 PressCycle 的 dose 相位机（每瓶配额 `quota=3` 次完整按压 cycle）之上加 clamp **EXCHANGE**（3 EXCH_OPEN 张爪放瓶 → 新瓶就位 conveyor 事件 → 4 EXCH_CLOSE 合爪抓稳 → 回 PRESS），**长爪开/合是第 4 个真学 action DoF**（a_jaw∈[-1,1]；剂量相锁死闭合，仅换瓶相解锁）。门全部传感器确定性推进（nozzle q / 刀缝 joint / palm 高 / 瓶 drift），策略真学驱动换瓶，非脚本。obs 31 = base 26 + 5 相 one-hot；act 4。抓稳 = 刀缝≤close_th ∧ drift<2mm 连续 5 步 → `bottle_count++`、lump `+10`。
+- **训练（三段 resume，obs 全程 31 维同形）**：S1 dive（相位锁 0、jaw 锁闭 = 单拍语义）→ S2 cyclic（开全 0/1/2 = PressCycle 循环）→ S3 line（开 quota + EXCHANGE）。**复现要点**：S2 从已收敛 dive 的 `model_799` resume 卡负区（~-13 plateau），改从**早期高熵 `model_200`** resume 才收敛（沿用 PressCycle 先例，未收敛 dive 更利于学抬回）；S3 训练 reward 双峰摆荡（60↔160），**以直接 eval 的 bottle_count 选 ckpt**（`model_3000` 胜出）。
+- **结果（s1 nominal，model_3000，64 env×20000 步）**：**5.95 瓶/局**（6689 瓶 / 1124 局）、**3.21 拍/瓶（配额 3，达额即换）**、episodes_trunc 982（87.4%，撑满 1200 步 horizon）vs fail 142（falloff 105 / 超时 37 / **drift_fail 0**）、96.1% 局至少换 1 瓶、回弹 q≈-0.00028、剂量瞬间漂移 0.25 mm。录像 `media/rl_press_line_s1.mp4`：单 episode **连续 4 次换瓶、0 reset**（配额 3/6/9/12 于 step 225/386/542/698、换瓶 231/392/548/704；1280×720@60、704 帧）。单拍回归仍 **1.000**（2332/2332）。
+- **边界（诚实）**：① 跨瓶高零样本为负 —— zc0565(短 20mm) 0.43 瓶/局(超时主因)、zc0605(长 20mm) 0.07 瓶/局(falloff 主因)；s07(0.7+riser) 0.01 瓶/局。策略的绝对任务空间残差按 nominal snap 校准，不跨几何/尺度泛化（要「不同瓶子」混线需逐几何训练或几何 DR）。② 混合几何单段连续 take 不受 instanced-env 架构支持（GPU instanced 同模板同几何 + 流水线串行单工位）。③ 换瓶「离/到」为 conveyor 事件建模（写平衡位 + drift 归零），sim 无传送带动画；爪开/合时机与抓稳仍真学。④ ~12.6% 局以 falloff/超时告终，多在 horizon 附近。⑤ 训练不稳定（S3 双峰摆荡）。
+- **代码落点（不入本仓库，依赖本机 IsaacLab editable 布局）**：`direct/press/press_line_env.py` + `PressLine*` cfg（`press_env_cfg.py`）+ task id `Isaac-PressLine-{Dive,Cyclic,Direct,56-Direct,60-Direct,07-Direct}-v0`；harness `rl/{smoke,eval,record}_press_line.py`；瓶 snap `rl/snapshots/recenter_{s1.00,s0.70,zc0565,zc0605}.npz`。复现命令见 `rl_learning_press_line.md` §9。
