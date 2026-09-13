@@ -320,3 +320,9 @@ env -u DISPLAY ./isaaclab.sh -p ../isaac_demo/rl/record_press.py --headless --en
 > 用户口径（2026-09-09）：自动化流水线上**夹爪抓不同瓶子 → 按压 → 抬升 → 松开本瓶 → 抓下一瓶**、任务连续。
 > **自包含总结报告 = `rl_learning_press_line.md`**（本文件只放指针）：在 PressCycle 的 dose 相之上加 clamp EXCHANGE（两子相 3 EXCH_OPEN / 4 EXCH_CLOSE），长爪开/合为**第 4 个真学 action DoF**，门全部传感器推进；obs 31 / act 4，三段课程 dive→cyclic→line。
 > 结果一句话：s1 nominal **5.95 瓶/局**、每瓶 3.21 拍（配额 3）、87% episode 撑满 1200 步、drift_fail=0；视频单 episode **连续 4 次换瓶 0 reset**；单拍回归 100%。诚实边界：**跨瓶高（zc0565/zc0605）与跨尺度（s07）零样本为负**（策略绑 nominal 几何）；混合几何单段连续受 instanced-env 架构限制不支持。
+
+## 13. 异构瓶泛化 round（PressLine-Hetero，2026-09-10）
+
+> 用户口径：「我们尝试用不同瓶子，验证泛化性」→ 拍板**架构改造：每 env 异构瓶**（最高风险档），评测=高度带 5 档 + 高/矮极端。
+> **自包含总结报告 = `rl_learning_press_hetero.md`**（本文件只放指针）：`replicate_physics=False` + `MultiUsdFileCfg` 让每 env 一个不同瓶 USD，6 档瓶高（cap 0.565–0.660 m，跨度 95 mm）同场。因 MDP 全用几何相对量，异构化只改资产层 + per-env `cap_top_local`，obs/act 与门控零修改。**推翻了 §12 的「混合几何不受 instanced-env 支持」**。
+> 结果一句话：**from-scratch 异构 dive 策略 6 档瓶高全部 100% 成功**（677/677、`falloff=drift=timeout=0`、确定性 48–56 步触底）—— 修正 `rl_learning_press_line.md` §7「跨瓶高零样本为负」：负的是 nominal 策略不迁移，从零训即可覆盖 95 mm 跨度；nominal 策略零样本投递**分级退化**（5.95→1.27 瓶/局、fail_frac 89.5%、**非单调**：±20 mm 邻档最差）；两档极矮瓶（zc0500/zc0545）因**臂关节限位**物理不可压。**诚实负结果：异构 dose-loop 专家训不成**（各路径全 plateau，死因清一色 LIFT 超时 `q=-0.005` 从不抬回，根因未定位）。视频 `media/rl_press_hetero_dive.mp4`（同一策略 6 档瓶高同屏 2×3 拼图）。

@@ -81,6 +81,11 @@ fail_types: falloff=105  timeout=37  drift=0
 
 混合几何在**单段连续 take** 内混不同 USD 仍不受支持（GPU instanced 同模板同几何 + 流水线串行单工位）；逐段换几何（各用该瓶 snap 重建 env）可做但每个 env 固定一种几何 —— 属架构限制，如实记录。
 
+> **2026-09-10 更新（异构瓶 round，见 `rl_learning_press_hetero.md`）**：本节结论**被后续 round 修正/推翻两处** ——
+> ① 上面「混合几何不受 instanced-env 架构支持」**已推翻**：`InteractiveSceneCfg(replicate_physics=False, clone_in_fabric=False)` + `MultiUsdFileCfg(usd_path=[...], random_choice=False)` 可让**每个 env 一个不同瓶 USD**（真异构场景已跑通）。
+> ② 本节「跨瓶高零样本为负」的**根因不是不可泛化，而是策略起点不对**：在 6 档混合场景上**从零训**的 dive 策略，**6 档瓶高全部 100% 成功**（677/677）。本节表的结论（nominal 策略直接投递为负）仍然成立且已复现 —— 即「**nominal 策略不迁移**」≠「跨瓶高不可学」。
+> ③ 但**异构版「连续多拍多瓶」专家仍未训成**（各路径 plateau，死因 LIFT 超时 `q=-0.005` 从不抬回，根因未定位）—— 本节记录的 dose-loop 难点在异构场景**依旧存在**。
+
 ## 8. 边界与遗留
 
 - **失败面**：~12.6% episode 以 falloff（105）/ 超时（37）告终，多数在 horizon 附近（~1200 步前）。falloff = 剂量相爪口仍抓瓶但 palm 越过 cap 面下潜（q 回升且 palm 低于 cap 面 10mm），多在换瓶后首批剂量偶发；未做针对性消解（可加「换瓶后 re-hover」门或把 falloff 判定收紧到连续步）。
